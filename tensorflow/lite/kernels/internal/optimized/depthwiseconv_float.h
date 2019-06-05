@@ -100,113 +100,6 @@ struct FloatDepthwiseConvKernel<true, 0, 1> {
   }
 };
 
-// template <>
-// struct FloatDepthwiseConvKernel<true, 0, 2> {
-//   static void Run(int num_output_pixels, int input_depth, int depth_multiplier,
-//                   const float* input_ptr, int input_ptr_increment,
-//                   const float* filter_ptr, float* acc_buffer_ptr) {
-//     // Handle one output pixel at a time.
-//     for (int outp = 0; outp < num_output_pixels; outp++) {
-//       const float* local_filter_ptr = filter_ptr;
-//       const float* local_input_ptr = input_ptr;
-//       int ic = 0;
-//       // Handle 8 input channels at a time.
-//       for (; ic <= input_depth - 8; ic += 8) {
-//         // Load the filters
-//         f32x4 filter[4];
-//         for (int i = 0; i < 4; i++) {
-//           filter[i] = wasm_v128_load((i8x16*)(local_filter_ptr + 4 * i));
-//         }
-//         local_filter_ptr += 16;
-//         // Load the inputs
-//         f32x4 input[4];
-//         const float* load_ptr = local_input_ptr;
-//         for (int i = 0; i < 4; i++) {
-//           float input_dup[4] = {*load_ptr, *(load_ptr++), *load_ptr, *(load_ptr++)};
-//           input[i] = wasm_v128_load((i8x16*)(input_dup));
-//         }
-//         local_input_ptr += 8;
-//         // Load the accumulators from acc_buffer
-//         f32x4 acc[4];
-//         for (int i = 0; i < 4; i++) {
-//           acc[i] = wasm_v128_load((i8x16*)(acc_buffer_ptr + 4 * i));
-//         }
-//         // Multiply-accumulate
-//         acc[0] = wasm_f32x4_add(acc[0], wasm_f32x4_mul(filter[0], input[0]));
-//         acc[1] = wasm_f32x4_add(acc[1], wasm_f32x4_mul(filter[1], input[1]));
-//         acc[2] = wasm_f32x4_add(acc[2], wasm_f32x4_mul(filter[2], input[2]));
-//         acc[3] = wasm_f32x4_add(acc[3], wasm_f32x4_mul(filter[3], input[3]));
-//         // Store the accumulators back to acc_buffer
-//         for (int i = 0; i < 4; i++) {
-//           wasm_v128_store((i8x16*)(acc_buffer_ptr + 4 * i), acc[i]);
-//         }
-//         acc_buffer_ptr += 16;
-//       }
-//       // Handle 4 input channels at a time.
-//       // for (; ic <= input_depth - 4; ic += 4) {
-//       //   // Load the filters
-//       //   float32x2_t filter[4];
-//       //   for (int i = 0; i < 4; i++) {
-//       //     filter[i] = vld1_f32(local_filter_ptr + 2 * i);
-//       //   }
-//       //   local_filter_ptr += 8;
-//       //   // Load the inputs
-//       //   const float32x4_t input = vld1q_f32(local_input_ptr);
-//       //   local_input_ptr += 4;
-//       //   // Load the accumulators from acc_buffer
-//       //   float32x2_t acc[4];
-//       //   for (int i = 0; i < 4; i++) {
-//       //     acc[i] = vld1_f32(acc_buffer_ptr + 2 * i);
-//       //   }
-//       //   // Multiply-accumulate
-//       //   acc[0] = vmla_lane_f32(acc[0], filter[0], vget_low_f32(input), 0);
-//       //   acc[1] = vmla_lane_f32(acc[1], filter[1], vget_low_f32(input), 1);
-//       //   acc[2] = vmla_lane_f32(acc[2], filter[2], vget_high_f32(input), 0);
-//       //   acc[3] = vmla_lane_f32(acc[3], filter[3], vget_high_f32(input), 1);
-//       //   // Store the accumulators back to acc_buffer
-//       //   for (int i = 0; i < 4; i++) {
-//       //     vst1_f32(acc_buffer_ptr + 2 * i, acc[i]);
-//       //   }
-//       //   acc_buffer_ptr += 8;
-//       // }
-//       // Handle 2 input channels at a time.
-//       for (; ic <= input_depth - 2; ic += 2) {
-//         // Load the filters
-//         const f32x4 filter = wasm_v128_load((i8x16 *)(local_filter_ptr));
-//         local_filter_ptr += 4;
-//         // Load the inputs
-//         const float32x2_t input = wasm_v128_load(local_input_ptr);
-//         local_input_ptr += 2;
-//         // Load the accumulators from acc_buffer
-//         float32x2_t acc[2];
-//         for (int i = 0; i < 2; i++) {
-//           acc[i] = vld1_f32(acc_buffer_ptr + 2 * i);
-//         }
-//         // Multiply-accumulate
-//         acc[0] = vmla_lane_f32(acc[0], vget_low_f32(filter), input, 0);
-//         acc[1] = vmla_lane_f32(acc[1], vget_high_f32(filter), input, 1);
-//         // Store the accumulators back to acc_buffer
-//         for (int i = 0; i < 2; i++) {
-//           vst1_f32(acc_buffer_ptr + 2 * i, acc[i]);
-//         }
-//         acc_buffer_ptr += 4;
-//       }
-//       // Handle one input channel at a time.
-//       for (; ic < input_depth; ic++) {
-//         // Load the inputs
-//         const float input_val = *local_input_ptr++;
-//         // Multiply-accumulate
-//         for (int i = 0; i < 2; i++) {
-//           acc_buffer_ptr[i] += local_filter_ptr[i] * input_val;
-//         }
-//         local_filter_ptr += 2;
-//         acc_buffer_ptr += 2;
-//       }
-//       input_ptr += input_ptr_increment;
-//     }
-//   }
-// };
-
 // Accumulates the effect of one row of the filter, on a segment of one row
 // of the output, accessing the corresponding one row of the input.
 template <bool kAllowStrided, int kFixedInputDepth, int kFixedDepthMultiplier>
@@ -507,6 +400,9 @@ inline void DepthwiseConv(
           output_ptr += 4;
         }
 #endif
+
+      // got wasm_f32x4_min and wasm_f32x4_max haven't be supported yet
+
       // for (; i <= num_output_values - 16; i += 16) {
       //     f32x4 acc[4];
       //     for (int k = 0; k < 4; k++) {
